@@ -7,6 +7,13 @@ app = Flask(__name__)
 # Absolute path to the local file with an HTML table
 FILE_PATH = r"C:\Users\avram\OneDrive\Desktop\Bloomtech TRG\TRG Week 42\bac.us.txt"
 
+# Module-level DataFrames (populated on first load)
+df_full = None
+df_early = None
+df_mid = None
+df_late = None
+
+
 
 def load_first_table_html(path):
     """Load the first HTML table from the given file path and return HTML string.
@@ -22,6 +29,14 @@ def load_first_table_html(path):
         tables = pd.read_html(path)
         if tables:
             df = tables[0]
+            # ensure Date is datetime
+            if "Date" in df.columns:
+                df["Date"] = pd.to_datetime(df["Date"])
+            # Remove OpenInt column if present
+            if "OpenInt" in df.columns:
+                df = df.drop(columns=["OpenInt"])
+            # populate module-level DataFrames for further analysis
+            _populate_splits(df)
             table_html = df.to_html(index=False)
             full_html = (
                 "<html><head><meta charset='utf-8'><title>bac.us table</title>"
@@ -34,6 +49,14 @@ def load_first_table_html(path):
     # Fallback: parse as CSV (the provided file appears to be CSV)
     try:
         df = pd.read_csv(path)
+        # parse Date column
+        if "Date" in df.columns:
+            df["Date"] = pd.to_datetime(df["Date"])
+        # Remove OpenInt column if present
+        if "OpenInt" in df.columns:
+            df = df.drop(columns=["OpenInt"])
+        # populate module-level DataFrames for further analysis
+        _populate_splits(df)
         table_html = df.to_html(index=False)
         full_html = (
             "<html><head><meta charset='utf-8'><title>bac.us table</title>"
@@ -60,3 +83,31 @@ def index():
 if __name__ == "__main__":
     # Run the app on localhost:5000
     app.run(host="127.0.0.1", port=5000, debug=True)
+
+
+def _populate_splits(df: pd.DataFrame):
+    """Populate module-level DataFrames: df_full, df_early, df_mid, df_late.
+
+    Split logic (chosen by judgment):
+    - df_early: 1986-05-29 through 1999-12-31 (long-run historical period)
+    - df_mid: 2000-01-01 through 2008-12-31 (pre/post-dotcom through financial crisis)
+    - df_late: 2009-01-01 through 2017-11-10 (post-crisis recovery)
+    """
+    global df_full, df_early, df_mid, df_late
+    df_full = df.copy()
+    # Ensure Date exists and is datetime
+    if "Date" not in df_full.columns:
+        # if no Date column, leave splits as None
+        df_early = df_mid = df_late = None
+        return
+
+    # Define cutoffs
+    early_end = pd.Timestamp("1999-12-31")
+    mid_start = pd.Timestamp("2000-01-01")
+    mid_end = pd.Timestamp("2008-12-31")
+    late_start = pd.Timestamp("2009-01-01")
+
+    df_early = df_full[df_full["Date"] <= early_end].reset_index(drop=True)
+    df_mid = df_full[(df_full["Date"] >= mid_start) & (df_full["Date"] <= mid_end)].reset_index(drop=True)
+    df_late = df_full[df_full["Date"] >= late_start].reset_index(drop=True)
+

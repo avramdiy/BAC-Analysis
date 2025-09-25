@@ -1,6 +1,11 @@
 from flask import Flask, Response
 import pandas as pd
 import os
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import io
+
 
 app = Flask(__name__)
 
@@ -78,6 +83,48 @@ def index():
         return Response(f"Error loading table: {err}", status=500, mimetype="text/plain")
     # Return the HTML table directly
     return Response(html, mimetype="text/html")
+
+
+@app.route("/monthly-avg")
+def monthly_avg_plot():
+    """Return a PNG plot of monthly average 'Open' for the three period DataFrames."""
+    # Ensure splits are populated
+    html, err = load_first_table_html(FILE_PATH)
+    if err:
+        return Response(f"Error preparing data: {err}", status=500, mimetype="text/plain")
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    plotted = False
+    def plot_series(df, label, color):
+        nonlocal plotted
+        if df is None or df.empty or 'Open' not in df.columns:
+            return
+        # set Date as index for resampling
+        s = df.set_index('Date')['Open'].resample('M').mean()
+        if s.dropna().empty:
+            return
+        s.plot(ax=ax, label=label, color=color)
+        plotted = True
+
+    plot_series(df_early, '1986-1999', 'tab:blue')
+    plot_series(df_mid, '2000-2008', 'tab:orange')
+    plot_series(df_late, '2009-2017', 'tab:green')
+
+    if not plotted:
+        return Response("No data available for plotting", status=500, mimetype="text/plain")
+
+    ax.set_title('Monthly average Open price by period')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Average Open')
+    ax.legend()
+    fig.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    return Response(buf.getvalue(), mimetype='image/png')
 
 
 if __name__ == "__main__":

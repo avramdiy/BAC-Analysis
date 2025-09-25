@@ -22,6 +22,8 @@
 
 ### 3rd Commit
 
+ - Added `/monthly-avg` route that returns a PNG plot of monthly average 'Open' price for `df_early`, `df_mid`, and `df_late`.
+
 ### 4th Commit
 
 ### 5th Commit

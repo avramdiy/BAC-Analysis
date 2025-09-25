@@ -26,6 +26,8 @@
 
 ### 4th Commit
 
+ - Added `/monthly-range` route that returns a PNG plot of monthly High-Low range (max High - min Low) for `df_early`, `df_mid`, and `df_late`.
+
 ### 5th Commit
 
 ### Summary:

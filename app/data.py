@@ -127,6 +127,50 @@ def monthly_avg_plot():
     return Response(buf.getvalue(), mimetype='image/png')
 
 
+@app.route("/monthly-range")
+def monthly_range_plot():
+    """Return a PNG plot of monthly range (max High - min Low) for the three period DataFrames."""
+    # Ensure splits are populated
+    html, err = load_first_table_html(FILE_PATH)
+    if err:
+        return Response(f"Error preparing data: {err}", status=500, mimetype="text/plain")
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    plotted = False
+    def plot_range(df, label, color):
+        nonlocal plotted
+        if df is None or df.empty or 'High' not in df.columns or 'Low' not in df.columns:
+            return
+        df2 = df.set_index('Date')
+        high = df2['High'].resample('M').max()
+        low = df2['Low'].resample('M').min()
+        r = (high - low)
+        if r.dropna().empty:
+            return
+        r.plot(ax=ax, label=label, color=color)
+        plotted = True
+
+    plot_range(df_early, '1986-1999', 'tab:blue')
+    plot_range(df_mid, '2000-2008', 'tab:orange')
+    plot_range(df_late, '2009-2017', 'tab:green')
+
+    if not plotted:
+        return Response("No data available for monthly range plotting", status=500, mimetype="text/plain")
+
+    ax.set_title('Monthly High-Low Range by period')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('High - Low')
+    ax.legend()
+    fig.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    return Response(buf.getvalue(), mimetype='image/png')
+
+
 if __name__ == "__main__":
     # Run the app on localhost:5000
     app.run(host="127.0.0.1", port=5000, debug=True)

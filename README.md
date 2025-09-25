@@ -30,7 +30,9 @@
 
 ### 5th Commit
 
+ - Added `/max-drawdown` route that returns a PNG comparing maximum drawdown (MDD) across `df_early`, `df_mid`, and `df_late`. MDD is used because it highlights historical downside risk and is directly comparable across regimes.
+
 ### Summary:
 
-- Implemented a Flask API (`app/data.py`) that serves the `bac.us.txt` table as HTML at `/`, with a CSV fallback when HTML tables aren't present. The loader drops `OpenInt` and exposes three period splits (`df_early`, `df_mid`, `df_late`) for downstream analysis.
-- Rationale: splitting by economic/regime periods (1986–1999, 2000–2008, 2009–2017) helps compare market behavior across structurally different regimes (pre-dotcom, crisis, post-crisis).
+- Implemented a local Flask API (`app/data.py`) that loads `bac.us.txt` (HTML-first, CSV fallback), drops `OpenInt`, parses dates, and creates three period splits (1986–1999, 2000–2008, 2009–2017). It exposes visualization endpoints: `/` (table), `/monthly-avg`, `/monthly-range`, and `/max-drawdown` (PNG outputs) to inspect monthly average open, monthly high-low range, and maximum drawdown per period.
+- Reasoning: the period splits align with distinct market/regime phases so comparisons are meaningful; the chosen metrics capture central tendency (monthly average), intra-month variability (high-low range), and historical downside risk (max drawdown), which together give a compact, actionable view for analysis and trader-focused risk assessment.

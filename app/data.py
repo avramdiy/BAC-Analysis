@@ -171,6 +171,67 @@ def monthly_range_plot():
     return Response(buf.getvalue(), mimetype='image/png')
 
 
+def _max_drawdown(df: pd.DataFrame):
+    """Compute maximum drawdown for a DataFrame with 'Date' and 'Close'.
+
+    Returns (mdd, start_date, end_date) where mdd is negative (e.g., -0.5 for -50%).
+    """
+    if df is None or df.empty or 'Close' not in df.columns:
+        return None, None, None
+    s = df.sort_values('Date').set_index('Date')['Close'].dropna()
+    if s.empty:
+        return None, None, None
+    running_max = s.cummax()
+    drawdown = (s / running_max) - 1.0
+    mdd = drawdown.min()
+    end = drawdown.idxmin()
+    start = s[:end].idxmax()
+    return float(mdd), start, end
+
+
+@app.route("/max-drawdown")
+def max_drawdown_plot():
+    """Return a PNG bar chart comparing maximum drawdown for the three periods."""
+    # Ensure splits are populated
+    html, err = load_first_table_html(FILE_PATH)
+    if err:
+        return Response(f"Error preparing data: {err}", status=500, mimetype="text/plain")
+
+    periods = [
+        ('1986-1999', df_early),
+        ('2000-2008', df_mid),
+        ('2009-2017', df_late),
+    ]
+
+    labels = []
+    values = []
+    details = []
+    for label, df in periods:
+        mdd, start, end = _max_drawdown(df)
+        if mdd is None:
+            labels.append(label)
+            values.append(0.0)
+            details.append((label, None, None, None))
+        else:
+            labels.append(label)
+            values.append(abs(mdd))  # plot positive magnitude
+            details.append((label, float(mdd), str(start.date()) if start is not None else None, str(end.date()) if end is not None else None))
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar(labels, values, color=['tab:blue', 'tab:orange', 'tab:green'])
+    ax.set_ylabel('Maximum drawdown (abs)')
+    ax.set_title('Maximum Drawdown by period')
+    for i, v in enumerate(values):
+        ax.text(i, v + 0.01 * max(values or [1]), f"{v:.2%}", ha='center')
+    fig.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    return Response(buf.getvalue(), mimetype='image/png')
+
+
 if __name__ == "__main__":
     # Run the app on localhost:5000
     app.run(host="127.0.0.1", port=5000, debug=True)
